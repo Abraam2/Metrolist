@@ -736,9 +736,6 @@ fun BottomSheetPlayer(
         )
     }
 
-    var showChoosePlaylistDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
 
     // Position update - only for local playback
     // When casting, we use castPosition directly to avoid sync issues

@@ -77,6 +77,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.FilterChipDefaults
 import com.metrolist.music.LocalSyncUtils
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun AddToPlaylistDialog(
@@ -303,23 +304,49 @@ fun AddToPlaylistDialog(
                     .padding(horizontal = 8.dp, vertical = 2.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(rowBg)
-                    .clickable {
-                        selectedPlaylist = playlist
-                        coroutineScope.launch(Dispatchers.IO) {
-                            if (songIds == null) {
-                                songIds = onGetSong(playlist)
-                            } else {
-                                onGetSong(playlist)
-                            }
-                            duplicates = database.playlistDuplicatesBatched(playlist.id, songIds!!)
-                            if (duplicates.isNotEmpty()) {
-                                showDuplicateDialog = true
-                            } else {
-                                onDismiss()
-                                addSongsAndSync(playlist, songIds!!)
+                        .clickable {
+                            selectedPlaylist = playlist
+                            coroutineScope.launch(Dispatchers.IO) {
+                                if (songIds == null) {
+                                    songIds = onGetSong(playlist)
+                                } else {
+                                    onGetSong(playlist)
+                                }
+
+                                if (containsSong) {
+                                    songIds?.forEach { id ->
+                                        // Sacamos todas las canciones de esta playlist y buscamos el objeto completo de la nuestra
+                                        val playlistSongs = database.playlistSongs(playlist.id).first()
+                                        val ps = playlistSongs.find { it.map.songId == id }
+
+                                        if (ps != null) {
+                                            // Tu código de borrado exacto
+                                            val capturedSetVideoId = ps.map.setVideoId
+                                            database.transaction {
+                                                move(ps.map.playlistId, ps.map.position, Int.MAX_VALUE)
+                                                delete(ps.map.copy(position = Int.MAX_VALUE))
+                                            }
+                                            playlist.playlist.browseId?.let { browseId ->
+                                                syncUtils.scheduleRemoveFromPlaylist(
+                                                    browseId,
+                                                    ps.map.songId,
+                                                    ps.map.playlistId
+                                                ) { capturedSetVideoId }
+                                            }
+                                        }
+                                    }
+                                    onDismiss()
+                                } else {
+                                    duplicates = database.playlistDuplicatesBatched(playlist.id, songIds!!)
+                                    if (duplicates.isNotEmpty()) {
+                                        showDuplicateDialog = true
+                                    } else {
+                                        onDismiss()
+                                        addSongsAndSync(playlist, songIds!!)
+                                    }
+                                }
                             }
                         }
-                    }
                 )
             }
         }
