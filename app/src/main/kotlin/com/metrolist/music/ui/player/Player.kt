@@ -197,6 +197,7 @@ import com.metrolist.music.ui.component.Icon as MIcon
 import com.metrolist.music.constants.SleepTimerDefaultKey
 import com.metrolist.music.constants.SleepTimerFadeOutKey
 import com.metrolist.music.constants.SleepTimerStopAfterCurrentSongKey
+import kotlinx.coroutines.coroutineScope
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1881,6 +1882,7 @@ fun BottomSheetPlayer(
                                     isPlayerExpanded = isExpandedProvider,
                                     isLandscape = true,
                                     isListenTogetherGuest = isListenTogetherGuest,
+                                    onCollapse = { state.collapseSoft() },
                                 )
                             }
                         }
@@ -1943,6 +1945,7 @@ fun BottomSheetPlayer(
                                     modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
                                     isPlayerExpanded = isExpandedProvider,
                                     isListenTogetherGuest = isListenTogetherGuest,
+                                    onCollapse = { state.collapseSoft() },
                                 )
                             }
                         }

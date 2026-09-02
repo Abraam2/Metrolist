@@ -86,6 +86,14 @@ import com.metrolist.music.ui.component.CastButton
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.rememberCoroutineScope
+import com.metrolist.music.LocalDatabase
+import com.metrolist.music.LocalNavController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 
 /**
  * Pre-calculated thumbnail dimensions to avoid repeated calculations during recomposition.
@@ -202,6 +210,7 @@ fun Thumbnail(
     isPlayerExpanded: () -> Boolean = { true },
     isLandscape: Boolean = false,
     isListenTogetherGuest: Boolean = false,
+    onCollapse: () -> Unit = {},
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
@@ -338,7 +347,9 @@ fun Thumbnail(
                     ThumbnailHeader(
                         queueTitle = queueTitle,
                         albumTitle = mediaMetadata?.album?.title,
-                        textColor = textBackgroundColor
+                        albumId = mediaMetadata?.album?.id,
+                        textColor = textBackgroundColor,
+                        onCollapse = onCollapse
                     )
                 }
                 
@@ -437,12 +448,17 @@ fun Thumbnail(
 private fun ThumbnailHeader(
     queueTitle: String?,
     albumTitle: String?,
+    albumId: String?,
     textColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCollapse: () -> Unit = {},
 ) {
+    val navController = LocalNavController.current
+    val database = LocalDatabase.current
+    val coroutineScope = rememberCoroutineScope()
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRoleState = listenTogetherManager?.role?.collectAsStateWithLifecycle(initialValue = RoomRole.NONE)
-    val isListenTogetherGuest = listenTogetherRoleState?.value == RoomRole.GUEST
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -454,12 +470,11 @@ private fun ThumbnailHeader(
                 .align(Alignment.Center)
                 .padding(horizontal = 48.dp)
         ) {
-            // Listen Together indicator
             if (listenTogetherRoleState?.value != RoomRole.NONE) {
                 Text(
                     text = if (listenTogetherRoleState?.value == RoomRole.HOST) "Hosting Listen Together" else "Listening Together",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColor
+                    style = MaterialTheme.typography.labelMedium,
+                    color = textColor.copy(alpha = 0.7f)
                 )
             } else {
                 Text(
@@ -468,6 +483,7 @@ private fun ThumbnailHeader(
                     color = textColor
                 )
             }
+
             val playingFrom = queueTitle ?: albumTitle
             if (!playingFrom.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -476,7 +492,33 @@ private fun ThumbnailHeader(
                     style = MaterialTheme.typography.titleMedium,
                     color = textColor.copy(alpha = 0.8f),
                     maxLines = 1,
-                    modifier = Modifier.basicMarquee()
+                    modifier = Modifier
+                        .basicMarquee()
+                        .clickable {
+                            coroutineScope.launch {
+                                val matchedPlaylist = withContext(Dispatchers.IO) {
+                                    if (queueTitle != null) {
+                                        database.playlistEntitiesByNameAsc().firstOrNull { it.name == queueTitle }
+                                    } else null
+                                }
+
+                                val route = when {
+                                    matchedPlaylist != null -> "local_playlist/${matchedPlaylist.id}"
+                                    albumId != null -> "album/$albumId"
+                                    else -> null
+                                }
+
+                                if (route != null) {
+                                    onCollapse()
+                                    navController.navigate(route) {
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            saveState = false
+                                        }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            }
+                        }
                 )
             }
         }
