@@ -1365,15 +1365,21 @@ class MusicService :
                         .build(),
                 ).setOnAudioFocusChangeListener { focusChange ->
                     handleAudioFocusChange(focusChange)
-                }.setAcceptsDelayedFocusGain(true)
+                }.setAcceptsDelayedFocusGain(false)
                 .build()
     }
 
     private fun handleAudioFocusChange(focusChange: Int) {
         when (focusChange) {
-            AudioManager.AUDIOFOCUS_GAIN,
-            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
-            -> {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+                audioFocusVolumeMultiplier.value = 1f
+                wasPlayingBeforeAudioFocusLoss = false
+                applyEffectiveVolume()
+                lastAudioFocusState = focusChange
+            }
+
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT -> {
                 hasAudioFocus = true
                 audioFocusVolumeMultiplier.value = 1f
 
