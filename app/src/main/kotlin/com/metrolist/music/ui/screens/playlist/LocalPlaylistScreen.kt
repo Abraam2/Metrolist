@@ -193,6 +193,13 @@ fun LocalPlaylistScreen(
     var locked by rememberPreference(PlaylistEditLockKey, defaultValue = true)
 
     val coroutineScope = rememberCoroutineScope()
+    LaunchedEffect(playlist?.id) {
+        playlist?.id?.let { playlistId ->
+            withContext(Dispatchers.IO) {
+                database.updatePlaylistLastUpdated(playlistId)
+            }
+        }
+    }
     val syncUtils = LocalSyncUtils.current
     val snackbarHostState = remember { SnackbarHostState() }
 
