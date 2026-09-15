@@ -925,6 +925,26 @@ constructor(
                     .build(),
             ).build()
     }
+    override fun onMediaButtonEvent(
+        session: MediaSession,
+        controllerInfo: MediaSession.ControllerInfo,
+        intent: android.content.Intent,
+    ): Boolean {
+        val keyEvent = androidx.core.content.IntentCompat.getParcelableExtra(
+            intent,
+            android.content.Intent.EXTRA_KEY_EVENT,
+            android.view.KeyEvent::class.java,
+        ) ?: return super.onMediaButtonEvent(session, controllerInfo, intent)
+
+        if (keyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+            val timeSinceDisconnect = android.os.SystemClock.elapsedRealtime() - MusicService.lastDisconnectTime
+            if (timeSinceDisconnect < 1500L) {
+                return true
+            }
+        }
+
+        return super.onMediaButtonEvent(session, controllerInfo, intent)
+    }
 }
 
 internal fun isBrowsableMediaId(mediaId: String): Boolean =

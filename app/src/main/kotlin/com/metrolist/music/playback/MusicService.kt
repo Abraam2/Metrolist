@@ -582,7 +582,7 @@ class MusicService :
                 val hasBluetooth =
                     addedDevices?.any {
                         it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     } == true
 
                 if (hasBluetooth) {
@@ -591,6 +591,22 @@ class MusicService :
                             player.play()
                         }
                     }
+                }
+            }
+
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                super.onAudioDevicesRemoved(removedDevices)
+                val hadAudioDevice =
+                    removedDevices?.any {
+                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                                it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                                it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                                it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                    } == true
+
+                if (hadAudioDevice) {
+                    lastDisconnectTime = android.os.SystemClock.elapsedRealtime()
                 }
             }
         }
@@ -2610,6 +2626,11 @@ class MusicService :
         playWhenReady: Boolean,
         reason: Int,
     ) {
+
+        if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY) {
+            lastDisconnectTime = android.os.SystemClock.elapsedRealtime()
+        }
+
         // Safety net: if local player tries to start while casting, immediately pause it
         if (playWhenReady && castConnectionHandler?.isCasting?.value == true) {
             player.pause()
@@ -4883,6 +4904,7 @@ class MusicService :
 
     companion object {
         const val ACTION_ALARM_TRIGGER = "com.metrolist.music.action.ALARM_TRIGGER"
+        var lastDisconnectTime = 0L
         const val EXTRA_ALARM_ID = "extra_alarm_id"
         const val EXTRA_ALARM_PLAYLIST_ID = "extra_alarm_playlist_id"
         const val EXTRA_ALARM_RANDOM_SONG = "extra_alarm_random_song"
