@@ -3050,11 +3050,14 @@ class MusicService :
             return
         }
 
-        if (dataStore.get(AutoSkipNextOnErrorKey, false)) {
+        val timeSinceDisconnect = android.os.SystemClock.elapsedRealtime() - lastDisconnectTime
+        val recentlyDisconnected = timeSinceDisconnect < 3000L
+
+        if (dataStore.get(AutoSkipNextOnErrorKey, false) && player.playWhenReady && !recentlyDisconnected) {
             Timber.tag(TAG).d("Auto-skipping to next track due to unrecoverable error")
             skipOnError()
         } else {
-            Timber.tag(TAG).d("Stopping playback due to unrecoverable error")
+            Timber.tag(TAG).d("Stopping playback due to unrecoverable error (recentlyDisconnected=$recentlyDisconnected, playWhenReady=${player.playWhenReady})")
             stopOnError()
         }
     }
