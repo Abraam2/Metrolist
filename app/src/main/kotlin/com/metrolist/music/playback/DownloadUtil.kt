@@ -100,7 +100,10 @@ constructor(
                 .setCache(playerCache)
                 .setCacheWriteDataSinkFactory(null)
                 .setUpstreamDataSourceFactory(
-                    OkHttpDataSource.Factory(streamHttpClient),
+                    RangeChunkingDataSource.Factory(
+                        OkHttpDataSource.Factory(streamHttpClient),
+                        chunkSize = 10L * 1024 * 1024,
+                    ),
                 ),
         ) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
@@ -117,16 +120,19 @@ constructor(
 
             val playbackData = runBlocking(Dispatchers.IO) {
                 val song = database.songEntity(mediaId)
-                InnerTubeXPlayer.playerResponseForPlayback(
+                val hints = ContentHints(
+                    isExplicit = song?.explicit,
+                    isUploaded = song?.isUploaded,
+                )
+                suspend fun extract(strict: Boolean) = InnerTubeXPlayer.playerResponseForPlayback(
                     mediaId,
                     audioQuality = audioQuality,
                     connectivityManager = connectivityManager,
-                    contentHints = ContentHints(
-                        isExplicit = song?.explicit,
-                        isUploaded = song?.isUploaded,
-                    ),
-                    allowBoundedRange = false,
+                    contentHints = hints,
+                    allowBoundedRange = true,
+                    forDownload = strict,
                 )
+                extract(strict = true).recoverCatching { extract(strict = false).getOrThrow() }
             }.getOrThrow()
             val format = playbackData.format
 
@@ -206,9 +212,9 @@ constructor(
                 requestHeaders = playbackData.streamHeaders,
                 clientName = playbackData.streamClient,
                 expiresInSeconds = playbackData.streamExpiresInSeconds,
-                requireBoundedRange = playbackData.requireBoundedRange,
-                rangeChunkSizeBytes = playbackData.rangeChunkSizeBytes,
-                useRangeChunks = playbackData.useRangeChunks,
+                requireBoundedRange = false,
+                rangeChunkSizeBytes = 0L,
+                useRangeChunks = false,
                 expectedGeneration = cacheGeneration,
             )
             dataSpec.withResolvedStream(
@@ -216,9 +222,9 @@ constructor(
                     url = streamUrl,
                     requestHeaders = playbackData.streamHeaders,
                     clientName = playbackData.streamClient,
-                    requireBoundedRange = playbackData.requireBoundedRange,
-                    rangeChunkSizeBytes = playbackData.rangeChunkSizeBytes,
-                    useRangeChunks = playbackData.useRangeChunks,
+                    requireBoundedRange = false,
+                    rangeChunkSizeBytes = 0L,
+                    useRangeChunks = false,
                 ),
             )
         }

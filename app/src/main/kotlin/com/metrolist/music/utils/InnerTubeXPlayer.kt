@@ -59,6 +59,7 @@ object InnerTubeXPlayer {
         connectivityManager: ConnectivityManager,
         contentHints: ContentHints = ContentHints(),
         allowBoundedRange: Boolean = true,
+        forDownload: Boolean = false,
     ): Result<PlaybackData> =
         try {
             val hints =
@@ -74,7 +75,14 @@ object InnerTubeXPlayer {
                 )
             val excludedClients =
                 buildSet {
-                    if (hasRecentWebRemixFailure(videoId)) add("WEB_REMIX")
+                    if (!allowBoundedRange || forDownload || hasRecentWebRemixFailure(videoId)) {
+                        add("WEB_REMIX")
+                        add("WEB_CREATOR")
+                        add("VISIONOS")
+                    }
+                    if (forDownload) {
+                        add("WEB_EMBEDDED_PLAYER")
+                    }
                 }
             val stream =
                 requireNotNull(
